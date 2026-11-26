@@ -23,47 +23,81 @@ export async function saveProduct(req, res, next) {
     });
   }
 
+  let client;
   try {
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const inserted = await client.query(
       `INSERT INTO productos (id, nombre, precio, precio_venta, stock)
        VALUES ($1, $2, $3, 0, $4)
-       ON CONFLICT (id)
-       DO UPDATE SET nombre = EXCLUDED.nombre, precio = EXCLUDED.precio, stock = EXCLUDED.stock
+       ON CONFLICT (id) DO NOTHING
        RETURNING id, nombre, precio, precio_venta, stock`,
       [Number(id), nombre.trim(), Number(precio), Number(stock)],
     );
 
+    let result = inserted;
+    if (inserted.rowCount > 0) {
+      if (Number(stock) > 0) {
+        await client.query(
+          `INSERT INTO inventario_movimientos (producto_id, tipo, cantidad, stock_anterior, stock_posterior, referencia)
+           VALUES ($1, 'ENTRADA', $2, 0, $2, 'Inventario inicial')`,
+          [Number(id), Number(stock)],
+        );
+      }
+    } else {
+      result = await client.query(
+        `UPDATE productos
+         SET nombre = $1, precio = $2
+         WHERE id = $3
+         RETURNING id, nombre, precio, precio_venta, stock`,
+        [nombre.trim(), Number(precio), Number(id)],
+      );
+    }
+
+    await client.query("COMMIT");
+
     return res.status(200).json({
-      message: "Producto guardado o actualizado correctamente.",
+      message: inserted.rowCount > 0
+        ? "Producto guardado correctamente."
+        : "Producto actualizado correctamente. El stock se modifica desde los movimientos de inventario.",
       producto: result.rows[0],
     });
   } catch (error) {
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("No se pudo revertir el registro del producto:", rollbackError);
+      }
+    }
     return next(error);
+  } finally {
+    client?.release();
   }
 }
 
 export async function updateProduct(req, res, next) {
   const id = Number(req.params.id);
-  const { nombre, precio, stock } = req.body ?? {};
+  const { nombre, precio } = req.body ?? {};
 
   if (
     !Number.isInteger(id) ||
     id <= 0 ||
     id > 2147483647 ||
-    !isValidProduct({ id, nombre, precio, stock })
+    !isValidProduct({ id, nombre, precio, stock: 0 })
   ) {
     return res.status(400).json({
-      message: "Ingresa un ID válido, un nombre, un precio base mayor que cero y un stock válido.",
+      message: "Ingresa un ID válido, un nombre y un precio base mayor que cero.",
     });
   }
 
   try {
     const result = await pool.query(
       `UPDATE productos
-       SET nombre = $1, precio = $2, stock = $3
-       WHERE id = $4
+       SET nombre = $1, precio = $2
+       WHERE id = $3
        RETURNING id, nombre, precio, precio_venta, stock`,
-      [nombre.trim(), Number(precio), Number(stock), id],
+      [nombre.trim(), Number(precio), id],
     );
 
     if (result.rowCount === 0) {

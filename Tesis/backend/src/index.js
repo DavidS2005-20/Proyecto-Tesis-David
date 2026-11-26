@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import pool from "./config/db.js";
 import productsRoutes from "./routes/productsRoutes.js";
+import { createSale } from "./controllers/salesController.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -16,6 +17,8 @@ app.use(express.json({ limit: "10kb" }));
 
 app.use("/api/productos", productsRoutes);
 app.use("/api/products", productsRoutes);
+app.post("/api/ventas", createSale);
+app.post("/api/sales", createSale);
 
 app.use((error, _req, res, _next) => {
   console.error("Error en la API:", error);

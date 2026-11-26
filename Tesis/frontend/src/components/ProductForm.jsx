@@ -42,7 +42,7 @@ export default function ProductForm() {
       <div className="mb-7">
         <h2 className="text-xl font-semibold text-slate-900">Datos del producto</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Si el ID ya existe, se actualizan el nombre, el precio base y el stock.
+          Si el ID ya existe, se actualizan el nombre y el precio base; el stock solo se define al crear el producto.
         </p>
       </div>
 
@@ -95,7 +95,7 @@ export default function ProductForm() {
             </div>
           </label>
           <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-            Stock disponible
+            Stock inicial (solo al crear)
             <input
               className="form-input mt-2"
               type="number"
@@ -107,6 +107,9 @@ export default function ProductForm() {
               placeholder="0"
               required
             />
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              Para productos existentes, registra cambios desde Recepción de mercancía.
+            </span>
           </label>
         </div>
 
